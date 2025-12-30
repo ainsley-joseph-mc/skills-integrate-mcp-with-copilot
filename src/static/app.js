@@ -12,29 +12,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
-      // Populate activities list
+      // Get current email value for timetable
+      const emailInput = document.getElementById("email");
+      const timetableList = document.getElementById("timetable-list");
+      const currentEmail = emailInput.value.trim().toLowerCase();
+
+      // Prepare timetable data
+      let userActivities = [];
+
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
 
-        const spotsLeft =
-          details.max_participants - details.participants.length;
+        const spotsLeft = details.max_participants - details.participants.length;
 
         // Create participants HTML with delete icons instead of bullet points
         const participantsHTML =
           details.participants.length > 0
             ? `<div class="participants-section">
-              <h5>Participants:</h5>
-              <ul class="participants-list">
-                ${details.participants
-                  .map(
-                    (email) =>
-                      `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
-                  )
-                  .join("")}
-              </ul>
-            </div>`
+                <h5>Participants:</h5>
+                <ul class="participants-list">
+                  ${details.participants
+                    .map(
+                      (email) =>
+                        `<li><span class="participant-email">${email}</span><button class="delete-btn" data-activity="${name}" data-email="${email}">❌</button></li>`
+                    )
+                    .join("")}
+                </ul>
+              </div>`
             : `<p><em>No participants yet</em></p>`;
 
         activityCard.innerHTML = `
@@ -54,12 +61,37 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = name;
         option.textContent = name;
         activitySelect.appendChild(option);
+
+        // Collect activities for timetable if user is a participant
+        if (currentEmail && details.participants.includes(currentEmail)) {
+          userActivities.push({
+            name,
+            schedule: details.schedule,
+            description: details.description
+          });
+        }
       });
 
       // Add event listeners to delete buttons
       document.querySelectorAll(".delete-btn").forEach((button) => {
         button.addEventListener("click", handleUnregister);
       });
+
+      // Render timetable
+      if (currentEmail) {
+        if (userActivities.length > 0) {
+          timetableList.innerHTML = `<ul>${userActivities
+            .map(
+              (act) =>
+                `<li><strong>${act.name}</strong>: ${act.schedule}<br><span style='color:#555;'>${act.description}</span></li>`
+            )
+            .join("")}</ul>`;
+        } else {
+          timetableList.innerHTML = `<p>No activities found for <strong>${currentEmail}</strong>. Sign up for activities to see your timetable.</p>`;
+        }
+      } else {
+        timetableList.innerHTML = `<p>Enter your email above and sign up for activities to see your personalized timetable here.</p>`;
+      }
     } catch (error) {
       activitiesList.innerHTML =
         "<p>Failed to load activities. Please try again later.</p>";
@@ -114,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const email = document.getElementById("email").value;
+    const email = document.getElementById("email").value.trim().toLowerCase();
     const activity = document.getElementById("activity").value;
 
     try {
@@ -134,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.className = "success";
         signupForm.reset();
 
-        // Refresh activities list to show updated participants
+        // Refresh activities list to show updated participants and timetable
         fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
@@ -153,6 +185,10 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
     }
+  });
+  // Update timetable when email input changes
+  document.getElementById("email").addEventListener("input", () => {
+    fetchActivities();
   });
 
   // Initialize app
